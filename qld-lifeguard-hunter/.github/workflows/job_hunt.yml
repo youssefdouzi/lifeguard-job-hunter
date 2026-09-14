@@ -1,0 +1,44 @@
+name: QLD Lifeguard Job Hunt
+
+on:
+  schedule:
+    # Queensland (Brisbane/Gold Coast) est en AEST toute l'année, UTC+10, pas d'heure d'été.
+    # 05:00 QLD -> 19:00 UTC la veille
+    - cron: "0 19 * * *"
+    # 21:00 QLD -> 11:00 UTC le jour même
+    - cron: "0 11 * * *"
+  workflow_dispatch: {}  # permet de lancer manuellement depuis l'onglet Actions
+
+permissions:
+  contents: write
+
+jobs:
+  hunt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Installer les dépendances
+        run: pip install -r requirements.txt
+
+      - name: Lancer la chasse aux offres
+        working-directory: scraper
+        env:
+          # Uniquement nécessaire si tu passes ANALYSIS_ENGINE à "llm" (voir README).
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANALYSIS_ENGINE: ${{ secrets.ANALYSIS_ENGINE }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python main.py
+
+      - name: Commit et push des données mises à jour
+        run: |
+          git config user.name "job-hunter-bot"
+          git config user.email "actions@github.com"
+          git add data/seen_jobs.json docs/data.json
+          git diff --staged --quiet || git commit -m "Mise à jour automatique des offres"
+          git push

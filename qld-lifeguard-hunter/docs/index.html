@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QLD Lifeguard Job Hunter</title>
+<style>
+  :root {
+    --bg: #05070a;
+    --panel: #0e131a;
+    --panel-border: #1c2530;
+    --text: #eef2f6;
+    --muted: #8b98a8;
+    --accent: #2dd4bf;
+    --accent-soft: rgba(45, 212, 191, 0.12);
+    --warn: #f5b942;
+    --low: #4a5568;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: radial-gradient(circle at top, #0a1018 0%, #05070a 60%);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    padding: 32px 16px 80px;
+  }
+  header {
+    max-width: 960px;
+    margin: 0 auto 28px;
+  }
+  h1 {
+    font-size: 1.6rem;
+    margin: 0 0 4px;
+    letter-spacing: -0.02em;
+  }
+  #last-run {
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .controls {
+    max-width: 960px;
+    margin: 0 auto 20px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  select, input {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+  }
+  #list {
+    max-width: 960px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 16px;
+    padding: 18px 20px;
+    opacity: 0;
+    transform: translateY(8px);
+    animation: rise 0.4s ease forwards;
+  }
+  .card:hover {
+    border-color: var(--accent);
+    transition: border-color 0.2s ease;
+  }
+  @keyframes rise {
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .job-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 0 0 4px;
+  }
+  .job-meta {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin: 0;
+  }
+  .score-ring {
+    flex-shrink: 0;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    border: 3px solid var(--accent);
+    color: var(--accent);
+  }
+  .score-ring.mid { border-color: var(--warn); color: var(--warn); }
+  .score-ring.low { border-color: var(--low); color: var(--low); }
+  .reasoning {
+    margin: 12px 0 0;
+    font-size: 0.88rem;
+    color: var(--text);
+    line-height: 1.5;
+  }
+  .quick-facts {
+    margin-top: 10px;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  .quick-facts strong { color: var(--text); }
+  .prereq-list {
+    margin: 8px 0 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .prereq-list li {
+    font-size: 0.75rem;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--panel-border);
+    padding: 3px 9px;
+    border-radius: 8px;
+    color: var(--muted);
+  }
+  .card-footer {
+    margin-top: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .action-tag {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  a.job-link {
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  a.job-link:hover { text-decoration: underline; }
+  #empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 60px 0;
+    display: none;
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>QLD Lifeguard Job Hunter</h1>
+    <p id="last-run">Chargement...</p>
+  </header>
+
+  <div class="controls">
+    <select id="sort-select">
+      <option value="score">Trier par score</option>
+      <option value="source">Trier par source</option>
+    </select>
+    <select id="filter-select">
+      <option value="all">Toutes les offres</option>
+      <option value="apply">À postuler</option>
+      <option value="watch">À surveiller</option>
+    </select>
+  </div>
+
+  <div id="list"></div>
+  <div id="empty">Aucune offre pour le moment. Le prochain scan tourne bientôt.</div>
+
+<script>
+async function loadData() {
+  const res = await fetch('data.json?_=' + Date.now());
+  const data = await res.json();
+  document.getElementById('last-run').textContent =
+    'Dernier scan : ' + new Date(data.last_run).toLocaleString('fr-FR', { timeZone: 'Australia/Brisbane' }) + ' (heure QLD)';
+  render(data.jobs || []);
+}
+
+function scoreClass(score) {
+  if (score >= 70) return '';
+  if (score >= 40) return 'mid';
+  return 'low';
+}
+
+function render(jobs) {
+  const sortBy = document.getElementById('sort-select').value;
+  const filterBy = document.getElementById('filter-select').value;
+
+  let filtered = jobs.filter(j => j.is_relevant);
+  if (filterBy === 'apply') filtered = filtered.filter(j => j.action_recommandee === 'postuler maintenant');
+  if (filterBy === 'watch') filtered = filtered.filter(j => j.action_recommandee === 'à surveiller');
+
+  filtered.sort((a, b) => sortBy === 'score' ? b.score - a.score : a.source.localeCompare(b.source));
+
+  const list = document.getElementById('list');
+  list.innerHTML = '';
+  document.getElementById('empty').style.display = filtered.length ? 'none' : 'block';
+
+  filtered.forEach((job, i) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.style.animationDelay = (i * 0.03) + 's';
+    card.innerHTML = `
+      <div class="card-top">
+        <div>
+          <p class="job-title">${job.title}</p>
+          <p class="job-meta">${job.company} · ${job.location} · ${job.source}</p>
+        </div>
+        <div class="score-ring ${scoreClass(job.score)}">${job.score}</div>
+      </div>
+      <p class="reasoning">${job.resume_offre || job.reasoning}</p>
+      <div class="quick-facts">
+        <span>💰 <strong>${job.salaire || 'non précisé'}</strong></span>
+        <span>🧾 ${job.experience_required || 'inconnue'}</span>
+      </div>
+      ${(job.prerequis && job.prerequis.length) ? `<ul class="prereq-list">${job.prerequis.map(p => `<li>${p}</li>`).join('')}</ul>` : ''}
+      <div class="card-footer">
+        <span class="action-tag">${job.action_recommandee}</span>
+        <a class="job-link" href="${job.url}" target="_blank" rel="noopener">Voir l'offre →</a>
+      </div>
+    `;
+    list.appendChild(card);
+  });
+}
+
+document.getElementById('sort-select').addEventListener('change', loadData);
+document.getElementById('filter-select').addEventListener('change', loadData);
+loadData();
+</script>
+</body>
+</html>
